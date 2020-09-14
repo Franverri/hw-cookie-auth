@@ -13,7 +13,6 @@ const users = [
 app.use(morgan('dev'));
 app.use(bodyparser.urlencoded({ extended: true }));
 
-// El orden es importante, el cookieparser debe estar antes de la utilización del session
 app.use(cookieparser());
 
 app.use((req, res, next) => {
@@ -21,26 +20,32 @@ app.use((req, res, next) => {
   next();
 });
 
-const redirectLogin = (req, res, next) => {
-  if(!req.cookies.user) {
+const isAuthenticated = (req, res, next) => {
+  if(!req.cookies.userId) {
     res.redirect('/login');
   } else {
     next();
   }
 }
 
-const redirectHome = (req, res, next) => {
-  if(req.cookies.user) {
+const isNotAuthenticated = (req, res, next) => {
+  if(req.cookies.userId) {
     res.redirect('/home');
   } else {
     next();
   }
 }
 
+// app.get('/', (req, res) => {
+//   res.send(`
+//     <h1>Bienvenidos a Henry!</h1>
+//   `)
+// });
+
 app.get('/', (req, res) => {
   res.send(`
     <h1>Bienvenidos a Henry!</h1>
-    ${req.cookies.user && req.cookies.user.id ? `
+    ${req.cookies.userId ? `
       <a href='/home'>Perfil</a>
       <form method='post' action='/logout'>
         <button>Salir</button>
@@ -52,8 +57,8 @@ app.get('/', (req, res) => {
   `)
 });
 
-app.get('/home', redirectLogin, (req, res) => {
-  const user = users.find(user => user.id === req.cookies.user.id);
+app.get('/home', isAuthenticated, (req, res) => {
+  const user = users.find(user => user.id == req.cookies.userId);
 
   res.send(`
     <h1>Bienvenido ${user.name}</h1>
@@ -62,38 +67,38 @@ app.get('/home', redirectLogin, (req, res) => {
   `)
 });
 
-app.get('/login', redirectHome,  (req, res) => {
+app.get('/login', isNotAuthenticated, (req, res) => {
   res.send(`
     <h1>Iniciar sesión</h1>
     <form method='post' action='/login'>
       <input type='email' name='email' placeholder='Email' required />
       <input type='password' name='password' placeholder='Contraseña' required />
-      <input type='submit' />
+      <input type='submit' value='Ingresar' />
     </form>
     <a href='/register'>Registrarse</a>
   `)
 });
 
-app.get('/register', redirectHome, (req, res) => {
+app.get('/register', isNotAuthenticated, (req, res) => {
   res.send(`
     <h1>Registrarse</h1>
     <form method='post' action='/register'>
       <input name='name' placeholder='Nombre' required />
       <input type='email' name='email' placeholder='Email' required />
       <input type='password' name='password' placeholder='Contraseña' required />
-      <input type='submit' />
+      <input type='submit' value='Registrarse' />
     </form>
     <a href='/login'>Iniciar sesión</a>
   `)
 });
 
-app.post('/login', redirectHome, (req, res) => {
+app.post('/login', isNotAuthenticated, (req, res) => {
   const { email, password } = req.body;
 
   if(email && password) {
     const user = users.find(user => user.email === email && user.password === password);
     if(user) {
-      res.cookie('user', user);
+      res.cookie('userId', user.id);
       return res.redirect('/home')
     }
   }
@@ -101,7 +106,7 @@ app.post('/login', redirectHome, (req, res) => {
   res.redirect('/login')
 });
 
-app.post('/register', redirectHome, (req, res) => {
+app.post('/register', isNotAuthenticated, (req, res) => {
   const { name, email, password } = req.body;
 
   if(name && email && password) {
@@ -121,8 +126,8 @@ app.post('/register', redirectHome, (req, res) => {
   res.redirect('/register')
 });
 
-app.post('/logout', redirectLogin, (req, res) => {
-  res.clearCookie('user');
+app.post('/logout', isAuthenticated, (req, res) => {
+  res.clearCookie('userId');
   res.redirect('/');
 });
 
